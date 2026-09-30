@@ -1,0 +1,2153 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#081225" />
+  <meta name="description" content="แผนที่ GTA/FiveM ธีมทางการ พร้อมระบบค้นหา เพิ่ม แก้ไข และลบจุด" />
+  <title>Wind Tactical Map — Point Manager</title>
+
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #081225;
+      --panel: #0c1b36;
+      --panel-soft: #12294f;
+      --panel-hover: #19355f;
+      --border: #294269;
+      --border-strong: #4f8cff;
+      --text: #f7f9fd;
+      --muted: #aebbd0;
+      --accent: #4f8cff;
+      --accent-hover: #75a5ff;
+      --accent-soft: rgba(79, 140, 255, 0.16);
+      --accent-gold: #d6b15f;
+      --accent-gold-soft: rgba(214, 177, 95, 0.14);
+      --success: #3bcf9a;
+      --warning: #d6b15f;
+      --danger: #ff7d88;
+      --danger-soft: rgba(255, 125, 136, 0.12);
+      --shadow: 0 16px 42px rgba(1, 8, 24, 0.38);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      font-family: "Noto Sans Thai", "Leelawadee UI", Tahoma, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .app-shell {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 12px;
+      padding: 12px;
+      background: var(--bg);
+    }
+
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .topbar {
+      min-height: 68px;
+      display: grid;
+      grid-template-columns: minmax(220px, 285px) minmax(260px, 1fr) auto;
+      align-items: center;
+      gap: 14px;
+      padding: 11px 12px 11px 16px;
+      box-shadow: var(--shadow), inset 0 1px 0 var(--accent-gold-soft);
+    }
+
+    .brand {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      flex: 0 0 auto;
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg, var(--accent), #315fc0);
+      color: #ffffff;
+      font-size: 19px;
+      font-weight: 900;
+      box-shadow: 0 8px 22px rgba(79, 140, 255, 0.28);
+    }
+
+    .brand-copy { min-width: 0; }
+    .brand-copy h1 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.2;
+      letter-spacing: 0.075em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .brand-copy h1::after {
+      content: "";
+      display: inline-block;
+      width: 22px;
+      height: 2px;
+      margin-left: 8px;
+      vertical-align: middle;
+      border-radius: 999px;
+      background: var(--accent-gold);
+    }
+
+    .brand-copy p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .search-wrap { position: relative; min-width: 0; }
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    #searchInput {
+      width: 100%;
+      height: 43px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      padding: 0 44px 0 41px;
+      color: var(--text);
+      background: var(--panel-soft);
+      transition: border-color .2s, background .2s, box-shadow .2s;
+    }
+
+    #searchInput:focus {
+      border-color: var(--border-strong);
+      background: #17325d;
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    #clearSearch {
+      position: absolute;
+      right: 7px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 30px;
+      height: 30px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      display: none;
+    }
+
+    #clearSearch:hover { background: var(--panel-hover); color: var(--text); }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .segmented {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px;
+      border: 1px solid var(--border);
+      background: var(--panel-soft);
+      border-radius: 10px;
+    }
+
+    .segmented button {
+      height: 34px;
+      border: 0;
+      padding: 0 12px;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .segmented button.active {
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .action-button,
+    .icon-button,
+    .primary-button,
+    .secondary-button,
+    .danger-button {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: background .15s, border-color .15s, transform .15s;
+    }
+
+    .action-button:hover,
+    .icon-button:hover,
+    .secondary-button:hover { background: var(--panel-hover); }
+
+    .action-button:active,
+    .icon-button:active,
+    .primary-button:active,
+    .secondary-button:active,
+    .danger-button:active { transform: translateY(1px); }
+
+    .action-button {
+      height: 42px;
+      padding: 0 13px;
+      background: var(--panel-soft);
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .action-button.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: #e4eeff;
+    }
+
+    .icon-button {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      background: var(--panel-soft);
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 330px minmax(0, 1fr);
+      gap: 12px;
+      transition: grid-template-columns .2s ease;
+    }
+
+    .workspace.editor-open {
+      grid-template-columns: 320px minmax(0, 1fr) 340px;
+    }
+
+    .workspace.sidebar-hidden {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .workspace.sidebar-hidden.editor-open {
+      grid-template-columns: minmax(0, 1fr) 340px;
+    }
+
+    .workspace.sidebar-hidden #sidebar { display: none; }
+
+    .sidebar,
+    .editor-panel {
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-section,
+    .editor-section {
+      padding: 15px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-heading,
+    .editor-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .section-heading h2,
+    .editor-heading h2 {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .055em;
+      text-transform: uppercase;
+    }
+
+    .data-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--warning);
+      box-shadow: 0 0 0 4px rgba(245, 185, 66, .11);
+    }
+
+    .status-dot.ready {
+      background: var(--success);
+      box-shadow: 0 0 0 4px rgba(53, 197, 139, .11);
+    }
+
+    .status-dot.local {
+      background: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-soft);
+    }
+
+    .status-dot.error {
+      background: var(--danger);
+      box-shadow: 0 0 0 4px rgba(239, 98, 98, .11);
+    }
+
+    .category-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .category-button {
+      min-height: 39px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--panel-soft);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      text-align: left;
+    }
+
+    .category-button:hover { background: var(--panel-hover); }
+    .category-button.active {
+      color: var(--text);
+      border-color: rgba(79, 140, 255, .66);
+      background: var(--accent-soft);
+    }
+
+    .category-label {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .category-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+      background: var(--cat-color, var(--accent));
+      box-shadow: 0 0 0 4px rgba(255,255,255,.055);
+    }
+
+    .category-count {
+      font-family: Consolas, monospace;
+      font-size: 10px;
+      opacity: .8;
+    }
+
+    .goto-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 8px;
+    }
+
+    .coord-input,
+    .field-input,
+    .field-select {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      outline: none;
+      color: var(--text);
+      background: var(--panel-soft);
+    }
+
+    .coord-input {
+      height: 39px;
+      padding: 0 10px;
+      font-family: Consolas, monospace;
+    }
+
+    .coord-input:focus,
+    .field-input:focus,
+    .field-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .primary-small {
+      height: 39px;
+      min-width: 42px;
+      border: 0;
+      border-radius: 9px;
+      padding: 0 12px;
+      background: var(--accent);
+      color: #ffffff;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .data-tools {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+    }
+
+    .tool-button {
+      min-height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel-soft);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .tool-button:hover { background: var(--panel-hover); color: var(--text); }
+
+    .results-head {
+      padding: 13px 15px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .results-head strong { font-size: 13px; }
+    .results-head span { color: var(--muted); font-size: 11px; }
+
+    #resultsList {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 0 8px 12px;
+      scrollbar-width: thin;
+      scrollbar-color: #344a61 transparent;
+    }
+
+    .result-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+      align-items: center;
+      border-radius: 10px;
+      margin-bottom: 2px;
+    }
+
+    .result-item:hover { background: var(--panel-soft); }
+
+    .result-main {
+      min-width: 0;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      padding: 9px 7px;
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 10px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .result-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      background: #0b1730;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .result-icon img { width: 23px; height: 23px; object-fit: contain; }
+    .result-copy { min-width: 0; }
+
+    .result-name {
+      display: block;
+      font-weight: 700;
+      font-size: 13px;
+      line-height: 1.35;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .result-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: 4px;
+      padding-right: 5px;
+      opacity: .2;
+      transition: opacity .15s;
+    }
+
+    .result-item:hover .result-actions,
+    .result-item:focus-within .result-actions { opacity: 1; }
+
+    .mini-button {
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #0b1730;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .mini-button:hover { color: var(--text); border-color: #496078; }
+    .mini-button.delete:hover { color: #ffb1b1; border-color: rgba(239,98,98,.55); background: var(--danger-soft); }
+
+    .empty-state {
+      padding: 30px 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .map-panel {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      overflow: hidden;
+      background: #102b53;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      background: #102b53;
+    }
+
+    .map-caption {
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 12px;
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .map-caption strong { color: var(--text); font-weight: 700; }
+
+    .leaflet-container {
+      font-family: inherit;
+      cursor: crosshair;
+    }
+
+    .leaflet-control-zoom {
+      border: 1px solid var(--border) !important;
+      border-radius: 10px !important;
+      overflow: hidden;
+      box-shadow: var(--shadow) !important;
+    }
+
+    .leaflet-control-zoom a {
+      width: 38px !important;
+      height: 38px !important;
+      line-height: 38px !important;
+      color: var(--text) !important;
+      background: rgba(17, 26, 36, .96) !important;
+      border-color: var(--border) !important;
+    }
+
+    .leaflet-control-zoom a:hover { background: var(--panel-hover) !important; }
+
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-tip {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    .leaflet-popup-content-wrapper { border-radius: 12px; }
+    .leaflet-popup-content { margin: 14px 15px; min-width: 205px; }
+    .leaflet-popup-close-button { color: var(--muted) !important; }
+
+    .popup-title {
+      font-weight: 800;
+      font-size: 15px;
+      line-height: 1.35;
+      margin-bottom: 8px;
+    }
+
+    .popup-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 9px;
+    }
+
+    .popup-coords {
+      padding: 9px 10px;
+      border-radius: 8px;
+      background: #0b1730;
+      border: 1px solid var(--border);
+      font-family: Consolas, Monaco, monospace;
+      font-size: 12px;
+      color: #8fb7ff;
+    }
+
+    .popup-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-top: 9px;
+    }
+
+    .popup-button {
+      min-height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel-soft);
+      color: var(--text);
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 11px;
+    }
+
+    .popup-button.primary { border-color: var(--accent); background: var(--accent); color: white; }
+    .popup-button.danger { border-color: rgba(239,98,98,.5); background: var(--danger-soft); color: #ffc0c0; }
+    .popup-button.full { grid-column: 1 / -1; }
+
+    .marker-shell {
+      position: relative;
+      width: 31px;
+      height: 31px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,.36);
+      background: rgba(8, 18, 37, .94);
+      box-shadow: 0 7px 17px rgba(0,0,0,.38), inset 0 0 0 2px rgba(255,255,255,.035);
+      transition: transform .15s ease, filter .15s ease;
+    }
+
+    .marker-shell:hover { transform: translateY(-2px) scale(1.07); filter: brightness(1.15); }
+    .marker-shell img { width: 21px; height: 21px; object-fit: contain; }
+
+    .marker-shell::after {
+      content: "";
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      bottom: 2px;
+      right: 2px;
+      background: var(--marker-color, var(--accent));
+      box-shadow: 0 0 7px var(--marker-color, var(--accent));
+    }
+
+    .editor-panel { display: none; }
+    .workspace.editor-open .editor-panel { display: flex; }
+
+    .editor-heading {
+      padding: 15px;
+      margin: 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .editor-heading-copy { min-width: 0; }
+    .editor-heading-copy h2 {
+      margin: 0;
+      color: var(--text);
+      font-size: 15px;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .editor-heading-copy p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .close-editor {
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel-soft);
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .editor-form {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 15px;
+    }
+
+    .field-group { margin-bottom: 14px; }
+    .field-group label {
+      display: block;
+      margin-bottom: 7px;
+      color: #c5d3e0;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .field-input,
+    .field-select {
+      height: 42px;
+      padding: 0 11px;
+    }
+
+    .coordinate-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+
+    .field-help {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.55;
+    }
+
+    .icon-preview-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 52px;
+      gap: 9px;
+      align-items: center;
+    }
+
+    .icon-preview {
+      width: 52px;
+      height: 42px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #0b1730;
+      display: grid;
+      place-items: center;
+    }
+
+    .icon-preview img { width: 26px; height: 26px; object-fit: contain; }
+
+    .category-preview {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 38px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #0b1730;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .pick-button {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--panel-soft);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .pick-button.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: #e4eeff;
+    }
+
+    .editor-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 14px 15px;
+      border-top: 1px solid var(--border);
+    }
+
+    .primary-button,
+    .secondary-button,
+    .danger-button {
+      min-height: 42px;
+      padding: 0 13px;
+    }
+
+    .primary-button { border-color: var(--accent); background: var(--accent); color: white; }
+    .primary-button:hover { background: var(--accent-hover); }
+    .secondary-button { background: var(--panel-soft); color: var(--text); }
+    .danger-button { border-color: rgba(239,98,98,.5); background: var(--danger-soft); color: #ffc0c0; }
+    .danger-button:hover { background: rgba(239,98,98,.2); }
+    #deletePointButton { grid-column: 1 / -1; }
+
+    .bottom-bar {
+      min-height: 56px;
+      display: grid;
+      grid-template-columns: minmax(220px, auto) minmax(180px, 1fr) auto;
+      align-items: center;
+      gap: 14px;
+      padding: 9px 12px;
+    }
+
+    .coordinate-card { min-width: 0; }
+    .coordinate-label {
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: .045em;
+      text-transform: uppercase;
+    }
+
+    .coordinate-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: 4px;
+    }
+
+    #cursorCoords {
+      font-family: Consolas, Monaco, monospace;
+      color: #8fb7ff;
+      font-weight: 700;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    #copyCursor {
+      width: 28px;
+      height: 28px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    #copyCursor:hover { color: var(--text); background: var(--panel-hover); }
+
+    .footer-note {
+      min-width: 0;
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .footer-actions { display: flex; gap: 8px; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 78px;
+      z-index: 2000;
+      transform: translate(-50%, 20px);
+      opacity: 0;
+      pointer-events: none;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 15px;
+      background: #111a24;
+      color: var(--text);
+      box-shadow: var(--shadow);
+      transition: opacity .2s ease, transform .2s ease;
+      font-size: 12px;
+    }
+
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    .loading-cover {
+      position: fixed;
+      inset: 0;
+      z-index: 2500;
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+      transition: opacity .3s ease, visibility .3s ease;
+    }
+
+    .loading-cover.hidden { opacity: 0; visibility: hidden; }
+    .loader-box { text-align: center; }
+
+    .loader-ring {
+      width: 46px;
+      height: 46px;
+      margin: 0 auto 14px;
+      border: 3px solid rgba(255,255,255,.11);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .85s linear infinite;
+    }
+
+    .loader-box strong { display: block; font-size: 14px; }
+    .loader-box span { display: block; color: var(--muted); margin-top: 5px; font-size: 11px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 1180px) {
+      .topbar { grid-template-columns: minmax(190px, 245px) minmax(220px, 1fr) auto; }
+      .workspace.editor-open { grid-template-columns: 290px minmax(0, 1fr) 310px; }
+      .workspace.sidebar-hidden.editor-open { grid-template-columns: minmax(0, 1fr) 310px; }
+      .action-button .button-label { display: none; }
+      .action-button { width: 42px; padding: 0; }
+    }
+
+    @media (max-width: 900px) {
+      html, body { height: auto; min-height: 100%; overflow: auto; }
+
+      .app-shell {
+        height: auto;
+        min-height: 100vh;
+        grid-template-rows: auto auto auto;
+      }
+
+      .topbar {
+        grid-template-columns: 1fr auto;
+      }
+
+      .brand { display: none; }
+      .search-wrap { grid-column: 1; }
+
+      .workspace,
+      .workspace.editor-open,
+      .workspace.sidebar-hidden,
+      .workspace.sidebar-hidden.editor-open {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+      }
+
+      .map-panel { min-height: 58vh; order: 1; }
+      .sidebar { min-height: 520px; max-height: 620px; order: 2; }
+      .editor-panel { order: 3; min-height: 520px; }
+      .workspace.sidebar-hidden #sidebar { display: none; }
+      .result-actions { opacity: 1; }
+
+      .bottom-bar {
+        grid-template-columns: 1fr auto;
+      }
+
+      .footer-note { display: none; }
+    }
+
+    @media (max-width: 620px) {
+      .app-shell { padding: 8px; gap: 8px; }
+      .topbar { grid-template-columns: 1fr; padding: 9px; }
+      .search-wrap { grid-column: 1; }
+      .top-actions { justify-content: space-between; flex-wrap: wrap; }
+      .top-actions .segmented { flex: 1; }
+      .top-actions .segmented button { flex: 1; }
+      .action-button { width: auto; flex: 1; padding: 0 10px; }
+      .action-button .button-label { display: inline; }
+      #toggleSidebar, #resetView { flex: 0 0 42px; }
+      .map-panel { min-height: 54vh; }
+      .sidebar { max-height: none; min-height: 560px; }
+      .category-list { grid-template-columns: 1fr 1fr; }
+      .bottom-bar { grid-template-columns: 1fr; }
+      .footer-actions { display: grid; grid-template-columns: 1fr 1fr; }
+      .footer-actions .action-button { width: 100%; }
+      .toast { bottom: 118px; max-width: calc(100vw - 30px); text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar panel">
+      <div class="brand">
+        <div class="brand-mark">W</div>
+        <div class="brand-copy">
+          <h1>Wind Tactical Map</h1>
+          <p id="brandSubtitle">Interactive GTA coordinate map</p>
+        </div>
+      </div>
+
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input id="searchInput" type="search" autocomplete="off" placeholder="ค้นหาสถานที่ เช่น โรงพยาบาล, แยก, ปั๊ม..." aria-label="ค้นหาสถานที่" />
+        <button id="clearSearch" title="ล้างการค้นหา" aria-label="ล้างการค้นหา">×</button>
+      </div>
+
+      <div class="top-actions">
+        <div class="segmented" aria-label="รูปแบบแผนที่">
+          <button class="map-style active" data-map="atlas">Atlas</button>
+          <button class="map-style" data-map="satellite">Satellite</button>
+        </div>
+        <button id="addPointTop" class="action-button" title="เพิ่มจุดใหม่"><span>＋</span> <span class="button-label">เพิ่มจุด</span></button>
+        <button id="toggleEditor" class="action-button" title="เปิดหรือปิดแผงจัดการจุด"><span>✎</span> <span class="button-label">จัดการจุด</span></button>
+        <button id="toggleSidebar" class="icon-button" title="ซ่อนหรือแสดงรายการสถานที่" aria-label="ซ่อนหรือแสดงรายการสถานที่">☰</button>
+        <button id="resetView" class="icon-button" title="กลับมุมมองเริ่มต้น" aria-label="กลับมุมมองเริ่มต้น">⌂</button>
+      </div>
+    </header>
+
+    <main id="workspace" class="workspace">
+      <aside id="sidebar" class="sidebar panel">
+        <section class="sidebar-section">
+          <div class="section-heading">
+            <h2>หมวดหมู่จุด</h2>
+            <div class="data-status">
+              <span id="statusDot" class="status-dot"></span>
+              <span id="dataStatus">กำลังโหลด</span>
+            </div>
+          </div>
+          <div id="categoryList" class="category-list"></div>
+        </section>
+
+        <section class="sidebar-section">
+          <div class="section-heading"><h2>ไปยังพิกัด GTA</h2></div>
+          <form id="gotoForm" class="goto-grid">
+            <input id="gotoX" class="coord-input" inputmode="decimal" placeholder="X" aria-label="พิกัด X" />
+            <input id="gotoY" class="coord-input" inputmode="decimal" placeholder="Y" aria-label="พิกัด Y" />
+            <button class="primary-small" type="submit" title="ไปยังพิกัด">→</button>
+          </form>
+        </section>
+
+        <section class="sidebar-section">
+          <div class="section-heading"><h2>จัดการข้อมูล</h2></div>
+          <div class="data-tools">
+            <button id="exportData" class="tool-button" type="button">ส่งออก</button>
+            <button id="importData" class="tool-button" type="button">นำเข้า</button>
+            <button id="resetData" class="tool-button" type="button">คืนค่าเดิม</button>
+          </div>
+          <input id="importFile" type="file" accept="application/json,.json" hidden />
+        </section>
+
+        <div class="results-head">
+          <strong id="resultsTitle">สถานที่ทั้งหมด</strong>
+          <span id="resultsCount">0 จุด</span>
+        </div>
+        <div id="resultsList"></div>
+      </aside>
+
+      <section class="map-panel panel">
+        <div id="map" aria-label="แผนที่แบบโต้ตอบ"></div>
+        <div class="map-caption">
+          <span><strong>คำแนะนำ:</strong> คลิกแผนที่เพื่อดูพิกัด หรือเลือกโหมดเพิ่มจุดเพื่อบันทึกตำแหน่งใหม่</span>
+          <span id="pickModeStatus">โหมดดูแผนที่</span>
+        </div>
+      </section>
+
+      <aside id="editorPanel" class="editor-panel panel" aria-hidden="true">
+        <div class="editor-heading">
+          <div class="editor-heading-copy">
+            <h2 id="editorTitle">เพิ่มจุดใหม่</h2>
+            <p id="editorSubtitle">กรอกข้อมูลและเลือกตำแหน่งบนแผนที่</p>
+          </div>
+          <button id="closeEditor" class="close-editor" type="button" aria-label="ปิดแผงแก้ไข">×</button>
+        </div>
+
+        <form id="pointForm" class="editor-form">
+          <input id="pointId" type="hidden" />
+
+          <div class="field-group">
+            <label for="pointName">ชื่อจุด</label>
+            <input id="pointName" class="field-input" type="text" maxlength="120" placeholder="เช่น โรงพยาบาลกลาง" required />
+          </div>
+
+          <div class="field-group">
+            <label>พิกัด GTA</label>
+            <div class="coordinate-fields">
+              <input id="pointX" class="field-input" type="number" step="any" placeholder="X" required />
+              <input id="pointY" class="field-input" type="number" step="any" placeholder="Y" required />
+            </div>
+            <div class="field-help">เปิดโหมดเลือกพิกัด แล้วคลิกบนแผนที่เพื่อกรอกค่า X และ Y อัตโนมัติ</div>
+          </div>
+
+          <div class="field-group">
+            <label for="pointIcon">หมายเลขไอคอน</label>
+            <div class="icon-preview-row">
+              <input id="pointIcon" class="field-input" type="text" maxlength="8" list="iconOptions" placeholder="เช่น 01, 05, 22" required />
+              <div class="icon-preview"><img id="iconPreviewImage" src="" alt="ตัวอย่างไอคอน" /></div>
+            </div>
+            <datalist id="iconOptions">
+              <option value="01"><option value="02"><option value="03"><option value="04"><option value="05"><option value="06">
+              <option value="1"><option value="2"><option value="3"><option value="4"><option value="5"><option value="6">
+              <option value="7"><option value="8"><option value="9"><option value="10"><option value="11"><option value="12">
+              <option value="13"><option value="14"><option value="15"><option value="16"><option value="17"><option value="18">
+              <option value="19"><option value="20"><option value="21"><option value="22">
+            </datalist>
+          </div>
+
+          <div class="field-group">
+            <label>หมวดหมู่ที่ตรวจพบ</label>
+            <div id="categoryPreview" class="category-preview">กรอกหมายเลขไอคอนเพื่อดูหมวดหมู่</div>
+          </div>
+
+          <button id="pickPointButton" class="pick-button active" type="button">◎ เลือกพิกัดจากแผนที่: เปิด</button>
+          <div class="field-help">ขณะแก้ไขจุดเดิม สามารถลากหมุดบนแผนที่เพื่อเปลี่ยนตำแหน่งได้</div>
+        </form>
+
+        <div class="editor-actions">
+          <button id="cancelEditButton" class="secondary-button" type="button">ยกเลิก</button>
+          <button id="savePointButton" class="primary-button" type="submit" form="pointForm">บันทึกจุด</button>
+          <button id="deletePointButton" class="danger-button" type="button">ลบจุดนี้</button>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="bottom-bar panel">
+      <div class="coordinate-card">
+        <div class="coordinate-label">พิกัด GTA ตำแหน่งเมาส์</div>
+        <div class="coordinate-row">
+          <span id="cursorCoords">X — · Y —</span>
+          <button id="copyCursor" title="คัดลอกพิกัด" aria-label="คัดลอกพิกัด">⧉</button>
+        </div>
+      </div>
+
+      <div id="footerNote" class="footer-note">การเพิ่ม แก้ไข และลบ จะบันทึกอัตโนมัติในเบราว์เซอร์เครื่องนี้</div>
+
+      <div class="footer-actions">
+        <button id="addPointBottom" class="action-button" type="button">＋ เพิ่มจุดใหม่</button>
+        <button id="exportDataBottom" class="action-button" type="button">⇩ ดาวน์โหลด data.json</button>
+      </div>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <div id="loadingCover" class="loading-cover">
+    <div class="loader-box">
+      <div class="loader-ring"></div>
+      <strong>กำลังเตรียมแผนที่</strong>
+      <span>โหลดภาพและข้อมูลตำแหน่ง</span>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    "use strict";
+
+    const CONFIG = {
+      appName: "Wind Tactical Map",
+      sourceCodeUrl: "https://raw.githubusercontent.com/godofbom/MapRepport/main/index.html",
+      assetBaseUrl: "https://raw.githubusercontent.com/godofbom/MapRepport/main/",
+      dataFileUrl: "./data.json",
+      storageKey: "umd-tactical-map-locations-v3",
+      imageWidth: 8192,
+      imageHeight: 8192,
+      offsetX: 6487,
+      offsetY: 9474,
+      minZoom: -4,
+      maxZoom: 2,
+      focusZoom: 0.4,
+      maxSearchResults: 100
+    };
+
+    const CATEGORY_DEFS = {
+      landmark:    { label: "แลนด์มาร์ก", color: "#5bd1c5" },
+      resource:    { label: "ทรัพยากร", color: "#d7b968" },
+      service:     { label: "บริการ", color: "#76b1ff" },
+      medical:     { label: "โรงพยาบาล", color: "#ef7474" },
+      police:      { label: "สถานีตำรวจ", color: "#7898ff" },
+      agency:      { label: "หน่วยงาน", color: "#b495f4" },
+      route:       { label: "เส้นทาง / เหิน", color: "#eea860" },
+      underground: { label: "ใต้พิภพ", color: "#b985ed" },
+      gas:         { label: "ปั๊มน้ำมัน", color: "#78cc77" },
+      general:     { label: "จุดทั่วไป", color: "#c7d3dc" }
+    };
+
+    const FALLBACK_LOCATIONS = [
+      { name: "PeachLandmark", x: -2856, y: 8158, icon: "1" },
+      { name: "YellowLandmark", x: -2941, y: 7434, icon: "2" },
+      { name: "OrangeLandmark", x: -1932, y: 7832, icon: "3" },
+      { name: "WhiteLandmark", x: -2033, y: 7349, icon: "4" },
+      { name: "GreenLandmark", x: -2512, y: 6968, icon: "5" },
+      { name: "PinkLandmark", x: -2119, y: 6830, icon: "6" },
+      { name: "MintLandmark", x: -2943, y: 6629, icon: "7" },
+      { name: "BlueLandmark", x: -4066, y: 7135, icon: "8" },
+      { name: "RedLandmark", x: -3457, y: 7027, icon: "9" },
+      { name: "PurpleLandmark", x: -3273, y: 7660, icon: "10" },
+      { name: "โรงพยาบาลกลาง", x: -2504, y: 7728, icon: "01" },
+      { name: "สน.ในเมือง", x: -2424, y: 7458, icon: "03" },
+      { name: "Pound หน่วยงาน", x: -2466, y: 7880, icon: "04" },
+      { name: "ปั๊ม Clinton", x: -2313, y: 6628, icon: "22" },
+      { name: "สวนสนุก", x: -3822, y: 7510, icon: "02" },
+      { name: "Mega Mall", x: -2679, y: 7978, icon: "02" },
+      { name: "ใต้พิภพป๊อป", x: -2202, y: 8066, icon: "06" },
+      { name: "เหินถังขาว", x: -2357, y: 7223, icon: "05" },
+      { name: "Black Market", x: -2162, y: 8352, icon: "02" },
+      { name: "สนามบินล่าง", x: -3711, y: 8474, icon: "02" },
+      { name: "What Care", x: -3085, y: 6950, icon: "02" },
+      { name: "เส้น Great Ocean", x: -4697, y: 6731, icon: "05" },
+      { name: "เส้นพาโล", x: -1395, y: 7244, icon: "05" },
+      { name: "น้ำตก", x: -3091, y: 3897, icon: "06" }
+    ];
+
+    const imageBounds = [[0, 0], [CONFIG.imageHeight, CONFIG.imageWidth]];
+
+    const state = {
+      locations: [],
+      sourceLocations: [],
+      locationItems: [],
+      categoryLayers: new Map(),
+      categoryCounts: new Map(),
+      activeCategories: new Set(Object.keys(CATEGORY_DEFS)),
+      currentBase: "atlas",
+      cursorCoords: null,
+      sidebarCollapsed: false,
+      editorOpen: false,
+      editingId: null,
+      editorMode: "add",
+      pickMode: false,
+      draggedMarker: null,
+      dataSource: "loading",
+      baseDataSource: "source"
+    };
+
+    const map = L.map("map", {
+      crs: L.CRS.Simple,
+      minZoom: CONFIG.minZoom,
+      maxZoom: CONFIG.maxZoom,
+      zoomSnap: 0.1,
+      zoomDelta: 0.5,
+      wheelPxPerZoomLevel: 85,
+      preferCanvas: true,
+      attributionControl: false,
+      zoomControl: false,
+      maxBounds: [[-900, -900], [CONFIG.imageHeight + 900, CONFIG.imageWidth + 900]],
+      maxBoundsViscosity: 0.8
+    });
+
+    L.control.zoom({ position: "topleft" }).addTo(map);
+
+    const baseLayers = {
+      atlas: {
+        layer: L.imageOverlay(CONFIG.assetBaseUrl + "map.png", imageBounds, { interactive: false }),
+        background: "#0fa8d2"
+      },
+      satellite: {
+        layer: L.imageOverlay(CONFIG.assetBaseUrl + "map2.png", imageBounds, { interactive: false }),
+        background: "#143d6b"
+      }
+    };
+
+    let currentBaseLayer = baseLayers.atlas.layer.addTo(map);
+    map.fitBounds(imageBounds, { animate: false });
+
+    function gtaToLeaflet(gameX, gameY) {
+      return [-gameY + CONFIG.offsetY, gameX + CONFIG.offsetX];
+    }
+
+    function leafletToGTA(leafletX, leafletY) {
+      return [leafletX - CONFIG.offsetX, -(leafletY - CONFIG.offsetY)];
+    }
+
+    function createId(prefix = "point") {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return `${prefix}-${window.crypto.randomUUID()}`;
+      }
+      return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    function deterministicId(location, index) {
+      const safeIcon = String(location.icon || "0").replace(/[^a-zA-Z0-9_-]/g, "");
+      return `source-${index}-${Math.round(Number(location.x) || 0)}-${Math.round(Number(location.y) || 0)}-${safeIcon}`;
+    }
+
+    function normalizeLocation(location, index = 0) {
+      const x = Number(location?.x);
+      const y = Number(location?.y);
+      const name = String(location?.name ?? "").trim();
+      const icon = String(location?.icon ?? "02").trim();
+
+      if (!name || !Number.isFinite(x) || !Number.isFinite(y) || !icon) return null;
+
+      return {
+        id: String(location.id || deterministicId({ x, y, icon }, index)),
+        name,
+        x,
+        y,
+        icon
+      };
+    }
+
+    function normalizeLocations(collection) {
+      if (!Array.isArray(collection)) return [];
+      return collection.map(normalizeLocation).filter(Boolean);
+    }
+
+    function cloneLocations(collection) {
+      return collection.map(item => ({ ...item }));
+    }
+
+    function classifyIcon(icon) {
+      if (icon === "01") return "medical";
+      if (icon === "03") return "police";
+      if (icon === "04") return "agency";
+      if (icon === "05") return "route";
+      if (icon === "06") return "underground";
+      if (icon === "22") return "gas";
+      if (icon === "02") return "general";
+
+      const numeric = Number(icon);
+      if (Number.isFinite(numeric) && numeric >= 1 && numeric <= 10) return "landmark";
+      if (Number.isFinite(numeric) && numeric >= 11 && numeric <= 17) return "resource";
+      if (Number.isFinite(numeric) && numeric >= 18 && numeric <= 21) return "service";
+      return "general";
+    }
+
+    function parseLocationsFromSource(source) {
+      const regex = /\{\s*name:\s*"((?:\\.|[^"\\])*)"\s*,\s*x:\s*(-?\d+(?:\.\d+)?)\s*,\s*y:\s*(-?\d+(?:\.\d+)?)\s*,\s*icon:\s*"([^"]+)"\s*\}/g;
+      const locations = [];
+      let match;
+
+      while ((match = regex.exec(source)) !== null) {
+        let name = match[1];
+        try { name = JSON.parse(`"${match[1]}"`); } catch (_) {}
+        locations.push({
+          name: name.trim(),
+          x: Number(match[2]),
+          y: Number(match[3]),
+          icon: match[4]
+        });
+      }
+
+      return normalizeLocations(locations);
+    }
+
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 9000) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(url, { ...options, signal: controller.signal });
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    function readLocalLocations() {
+      try {
+        const raw = localStorage.getItem(CONFIG.storageKey);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return normalizeLocations(Array.isArray(parsed) ? parsed : parsed.locations);
+      } catch (error) {
+        console.warn("อ่านข้อมูลในเบราว์เซอร์ไม่สำเร็จ", error);
+        return [];
+      }
+    }
+
+    async function loadBaseLocations() {
+      try {
+        const response = await fetchWithTimeout(CONFIG.dataFileUrl, { cache: "no-store" }, 4500);
+        if (response.ok) {
+          const json = await response.json();
+          const parsed = normalizeLocations(Array.isArray(json) ? json : json.locations);
+          if (parsed.length) return { locations: parsed, source: "data-file" };
+        }
+      } catch (error) {
+        console.info("ไม่พบ data.json ใช้ข้อมูลจากซอร์สหลักแทน", error);
+      }
+
+      try {
+        const response = await fetchWithTimeout(CONFIG.sourceCodeUrl, { cache: "no-store" }, 10000);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const source = await response.text();
+        const parsed = parseLocationsFromSource(source);
+        if (parsed.length < 20) throw new Error("ไม่พบรายการพิกัดในซอร์ส");
+        return { locations: parsed, source: "source" };
+      } catch (error) {
+        console.warn("โหลดข้อมูลต้นฉบับไม่สำเร็จ ใช้ข้อมูลสำรอง", error);
+        return { locations: normalizeLocations(FALLBACK_LOCATIONS), source: "fallback" };
+      }
+    }
+
+    async function loadLocations() {
+      const base = await loadBaseLocations();
+      state.sourceLocations = cloneLocations(base.locations);
+      state.baseDataSource = base.source;
+
+      const local = readLocalLocations();
+      if (local.length) {
+        state.dataSource = "local";
+        return local;
+      }
+
+      state.dataSource = base.source;
+      return cloneLocations(base.locations);
+    }
+
+    function persistLocations() {
+      localStorage.setItem(CONFIG.storageKey, JSON.stringify(state.locations));
+      state.dataSource = "local";
+      updateDataStatus();
+    }
+
+    function makeMarkerIcon(location) {
+      const category = classifyIcon(location.icon);
+      const color = CATEGORY_DEFS[category].color;
+      const imageUrl = `${CONFIG.assetBaseUrl}${encodeURIComponent(location.icon)}.png`;
+
+      return L.divIcon({
+        className: "custom-map-marker",
+        html: `<span class="marker-shell" style="--marker-color:${color}"><img src="${imageUrl}" alt="" onerror="this.style.display='none'" /></span>`,
+        iconSize: [31, 31],
+        iconAnchor: [15, 28],
+        popupAnchor: [0, -25]
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeJsString(value) {
+      return JSON.stringify(String(value));
+    }
+
+    function popupHtml(location) {
+      const category = classifyIcon(location.icon);
+      const categoryLabel = CATEGORY_DEFS[category].label;
+      const idArg = escapeJsString(location.id);
+      return `
+        <div class="popup-title">${escapeHtml(location.name)}</div>
+        <div class="popup-meta">
+          <span>${escapeHtml(categoryLabel)}</span>
+          <span>ICON ${escapeHtml(location.icon)}</span>
+        </div>
+        <div class="popup-coords">X ${location.x} &nbsp;·&nbsp; Y ${location.y}</div>
+        <div class="popup-actions">
+          <button class="popup-button primary" onclick="window.copyGtaCoords(${location.x}, ${location.y})">คัดลอก</button>
+          <button class="popup-button" onclick='window.editMapPoint(${idArg})'>แก้ไข</button>
+          <button class="popup-button danger full" onclick='window.removeMapPoint(${idArg})'>ลบจุดนี้</button>
+        </div>
+      `;
+    }
+
+    function clearMarkerLayers() {
+      state.categoryLayers.forEach(layer => {
+        if (map.hasLayer(layer)) map.removeLayer(layer);
+        layer.clearLayers();
+      });
+      state.categoryLayers.clear();
+      state.categoryCounts.clear();
+      state.locationItems = [];
+    }
+
+    function buildMarkers(locations) {
+      clearMarkerLayers();
+
+      Object.keys(CATEGORY_DEFS).forEach((category) => {
+        const layer = L.layerGroup();
+        state.categoryLayers.set(category, layer);
+        state.categoryCounts.set(category, 0);
+        if (state.activeCategories.has(category)) layer.addTo(map);
+      });
+
+      state.locationItems = locations.map((location) => {
+        const category = classifyIcon(location.icon);
+        const [leafletY, leafletX] = gtaToLeaflet(location.x, location.y);
+        const marker = L.marker([leafletY, leafletX], {
+          icon: makeMarkerIcon(location),
+          title: location.name,
+          riseOnHover: true,
+          keyboard: true
+        });
+
+        marker.bindPopup(popupHtml(location), { closeButton: true, autoPanPadding: [70, 90] });
+        marker.addTo(state.categoryLayers.get(category));
+        state.categoryCounts.set(category, (state.categoryCounts.get(category) || 0) + 1);
+
+        return {
+          ...location,
+          category,
+          marker,
+          searchText: `${location.name} ${location.x} ${location.y} ${location.icon}`.toLocaleLowerCase("th")
+        };
+      });
+    }
+
+    function rebuildAll(focusId = null) {
+      disableDraggedMarker();
+      buildMarkers(state.locations);
+      renderCategories();
+      renderResults(document.getElementById("searchInput").value);
+      updateDataStatus();
+      setTimeout(() => map.invalidateSize(), 0);
+
+      if (focusId) {
+        const item = findItem(focusId);
+        if (item) focusLocation(item, true);
+      }
+    }
+
+    function renderCategories() {
+      const container = document.getElementById("categoryList");
+      container.innerHTML = "";
+
+      Object.entries(CATEGORY_DEFS).forEach(([id, def]) => {
+        const count = state.categoryCounts.get(id) || 0;
+        if (count === 0) return;
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `category-button${state.activeCategories.has(id) ? " active" : ""}`;
+        button.dataset.category = id;
+        button.innerHTML = `
+          <span class="category-label">
+            <span class="category-dot" style="--cat-color:${def.color}"></span>
+            <span>${def.label}</span>
+          </span>
+          <span class="category-count">${count}</span>
+        `;
+        button.addEventListener("click", () => toggleCategory(id, button));
+        container.appendChild(button);
+      });
+    }
+
+    function toggleCategory(category, button) {
+      const layer = state.categoryLayers.get(category);
+      if (!layer) return;
+
+      if (state.activeCategories.has(category)) {
+        state.activeCategories.delete(category);
+        if (map.hasLayer(layer)) map.removeLayer(layer);
+        button.classList.remove("active");
+      } else {
+        state.activeCategories.add(category);
+        if (!map.hasLayer(layer)) layer.addTo(map);
+        button.classList.add("active");
+      }
+      renderResults(document.getElementById("searchInput").value);
+    }
+
+    function normalizedText(value) {
+      return String(value || "").trim().toLocaleLowerCase("th");
+    }
+
+    function getFilteredItems(query) {
+      const q = normalizedText(query);
+      const visibleItems = state.locationItems.filter(item => state.activeCategories.has(item.category));
+      if (!q) return visibleItems;
+
+      return visibleItems
+        .filter(item => item.searchText.includes(q))
+        .sort((a, b) => {
+          const aStarts = normalizedText(a.name).startsWith(q) ? 0 : 1;
+          const bStarts = normalizedText(b.name).startsWith(q) ? 0 : 1;
+          return aStarts - bStarts || a.name.localeCompare(b.name, "th");
+        });
+    }
+
+    function renderResults(query = "") {
+      const list = document.getElementById("resultsList");
+      const results = getFilteredItems(query);
+      const limited = results.slice(0, CONFIG.maxSearchResults);
+      const q = normalizedText(query);
+
+      document.getElementById("resultsTitle").textContent = q ? "ผลการค้นหา" : "สถานที่ทั้งหมด";
+      document.getElementById("resultsCount").textContent = `${results.length.toLocaleString("th-TH")} จุด`;
+      document.getElementById("clearSearch").style.display = q ? "grid" : "none";
+
+      if (!limited.length) {
+        list.innerHTML = `<div class="empty-state">ไม่พบสถานที่ที่ตรงกับคำค้น<br>ลองเปลี่ยนคำหรือเปิดหมวดหมู่เพิ่มเติม</div>`;
+        return;
+      }
+
+      list.innerHTML = "";
+      const fragment = document.createDocumentFragment();
+
+      limited.forEach((item) => {
+        const def = CATEGORY_DEFS[item.category];
+        const row = document.createElement("div");
+        row.className = "result-item";
+        row.innerHTML = `
+          <button class="result-main" type="button">
+            <span class="result-icon" style="box-shadow: inset 3px 0 0 ${def.color}">
+              <img src="${CONFIG.assetBaseUrl}${encodeURIComponent(item.icon)}.png" alt="" onerror="this.style.display='none'" />
+            </span>
+            <span class="result-copy">
+              <span class="result-name">${escapeHtml(item.name)}</span>
+              <span class="result-meta">
+                <span>${escapeHtml(def.label)}</span>
+                <span>X ${item.x} · Y ${item.y}</span>
+              </span>
+            </span>
+          </button>
+          <span class="result-actions">
+            <button class="mini-button edit" type="button" title="แก้ไขจุด" aria-label="แก้ไข ${escapeHtml(item.name)}">✎</button>
+            <button class="mini-button delete" type="button" title="ลบจุด" aria-label="ลบ ${escapeHtml(item.name)}">×</button>
+          </span>
+        `;
+
+        row.querySelector(".result-main").addEventListener("click", () => focusLocation(item));
+        row.querySelector(".mini-button.edit").addEventListener("click", () => openEditPoint(item.id));
+        row.querySelector(".mini-button.delete").addEventListener("click", () => deletePoint(item.id));
+        fragment.appendChild(row);
+      });
+
+      list.appendChild(fragment);
+
+      if (results.length > CONFIG.maxSearchResults) {
+        const note = document.createElement("div");
+        note.className = "empty-state";
+        note.style.padding = "12px";
+        note.textContent = `แสดง ${CONFIG.maxSearchResults} รายการแรก จาก ${results.length} จุด`;
+        list.appendChild(note);
+      }
+    }
+
+    function findItem(id) {
+      return state.locationItems.find(item => item.id === id) || null;
+    }
+
+    function findLocation(id) {
+      return state.locations.find(item => item.id === id) || null;
+    }
+
+    function focusLocation(item, immediate = false) {
+      if (!state.activeCategories.has(item.category)) {
+        state.activeCategories.add(item.category);
+        const layer = state.categoryLayers.get(item.category);
+        if (layer && !map.hasLayer(layer)) layer.addTo(map);
+        document.querySelector(`[data-category="${item.category}"]`)?.classList.add("active");
+      }
+
+      if (immediate) {
+        map.setView(item.marker.getLatLng(), CONFIG.focusZoom, { animate: false });
+        item.marker.openPopup();
+      } else {
+        map.flyTo(item.marker.getLatLng(), CONFIG.focusZoom, { duration: 0.55 });
+        setTimeout(() => item.marker.openPopup(), 430);
+      }
+    }
+
+    function switchBaseMap(name) {
+      if (!baseLayers[name] || name === state.currentBase) return;
+      map.removeLayer(currentBaseLayer);
+      currentBaseLayer = baseLayers[name].layer.addTo(map);
+      currentBaseLayer.bringToBack();
+      state.currentBase = name;
+      document.getElementById("map").style.backgroundColor = baseLayers[name].background;
+
+      document.querySelectorAll(".map-style").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.map === name);
+      });
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove("show"), 1900);
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast(`คัดลอกแล้ว: ${text}`);
+      } catch (_) {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        textarea.remove();
+        showToast(`คัดลอกแล้ว: ${text}`);
+      }
+    }
+
+    window.copyGtaCoords = (x, y) => copyText(`${x}, ${y}`);
+    window.editMapPoint = (id) => openEditPoint(id);
+    window.removeMapPoint = (id) => deletePoint(id);
+    window.addPointAt = (x, y) => openAddPoint({ x, y });
+
+    function goToCoordinates(x, y, openPopup = true) {
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        showToast("กรุณากรอกพิกัด X และ Y ให้ถูกต้อง");
+        return;
+      }
+
+      const [leafletY, leafletX] = gtaToLeaflet(x, y);
+      const latlng = L.latLng(leafletY, leafletX);
+      map.flyTo(latlng, CONFIG.focusZoom, { duration: 0.55 });
+
+      if (openPopup) {
+        L.popup({ autoClose: true, closeOnClick: true })
+          .setLatLng(latlng)
+          .setContent(`
+            <div class="popup-title">พิกัดที่ระบุ</div>
+            <div class="popup-coords">X ${Math.round(x)} &nbsp;·&nbsp; Y ${Math.round(y)}</div>
+            <div class="popup-actions">
+              <button class="popup-button primary" onclick="window.copyGtaCoords(${x}, ${y})">คัดลอก</button>
+              <button class="popup-button" onclick="window.addPointAt(${x}, ${y})">เพิ่มจุดตรงนี้</button>
+            </div>
+          `)
+          .openOn(map);
+      }
+    }
+
+    function updateDataStatus() {
+      const statusDot = document.getElementById("statusDot");
+      const dataStatus = document.getElementById("dataStatus");
+      const subtitle = document.getElementById("brandSubtitle");
+      const countText = `${state.locations.length.toLocaleString("th-TH")} จุด`;
+
+      statusDot.className = "status-dot";
+
+      if (state.dataSource === "local") {
+        statusDot.classList.add("local");
+        dataStatus.textContent = "บันทึกในเครื่อง";
+        subtitle.textContent = `${countText} · มีการแก้ไขในเบราว์เซอร์`;
+      } else if (state.dataSource === "data-file") {
+        statusDot.classList.add("ready");
+        dataStatus.textContent = "data.json";
+        subtitle.textContent = `${countText} · โหลดจาก data.json`;
+      } else if (state.dataSource === "source") {
+        statusDot.classList.add("ready");
+        dataStatus.textContent = "พร้อมใช้งาน";
+        subtitle.textContent = `${countText} · อัปเดตจากซอร์สเดิม`;
+      } else if (state.dataSource === "fallback") {
+        statusDot.classList.add("error");
+        dataStatus.textContent = "ข้อมูลสำรอง";
+        subtitle.textContent = `${countText} · โหลดข้อมูลหลักไม่สำเร็จ`;
+      } else {
+        dataStatus.textContent = "กำลังโหลด";
+        subtitle.textContent = "Interactive GTA coordinate map";
+      }
+    }
+
+    function setEditorOpen(open) {
+      const workspace = document.getElementById("workspace");
+      const panel = document.getElementById("editorPanel");
+      state.editorOpen = open;
+      workspace.classList.toggle("editor-open", open);
+      panel.setAttribute("aria-hidden", String(!open));
+      document.getElementById("toggleEditor").classList.toggle("active", open);
+
+      if (!open) {
+        state.pickMode = false;
+        state.editingId = null;
+        disableDraggedMarker();
+        updatePickModeUi();
+      }
+
+      setTimeout(() => map.invalidateSize(), 210);
+    }
+
+    function openAddPoint(coords = null) {
+      disableDraggedMarker();
+      setEditorOpen(true);
+      state.editorMode = "add";
+      state.editingId = null;
+      state.pickMode = true;
+
+      document.getElementById("editorTitle").textContent = "เพิ่มจุดใหม่";
+      document.getElementById("editorSubtitle").textContent = "กรอกข้อมูลและเลือกตำแหน่งบนแผนที่";
+      document.getElementById("pointId").value = "";
+      document.getElementById("pointName").value = "";
+      document.getElementById("pointX").value = coords?.x ?? state.cursorCoords?.x ?? "";
+      document.getElementById("pointY").value = coords?.y ?? state.cursorCoords?.y ?? "";
+      document.getElementById("pointIcon").value = "02";
+      document.getElementById("deletePointButton").style.display = "none";
+      updateIconPreview();
+      updatePickModeUi();
+      document.getElementById("pointName").focus();
+    }
+
+    function openEditPoint(id) {
+      const location = findLocation(id);
+      if (!location) return showToast("ไม่พบจุดที่ต้องการแก้ไข");
+
+      setEditorOpen(true);
+      state.editorMode = "edit";
+      state.editingId = id;
+      state.pickMode = true;
+
+      document.getElementById("editorTitle").textContent = "แก้ไขจุด";
+      document.getElementById("editorSubtitle").textContent = location.name;
+      document.getElementById("pointId").value = location.id;
+      document.getElementById("pointName").value = location.name;
+      document.getElementById("pointX").value = location.x;
+      document.getElementById("pointY").value = location.y;
+      document.getElementById("pointIcon").value = location.icon;
+      document.getElementById("deletePointButton").style.display = "block";
+      updateIconPreview();
+      updatePickModeUi();
+
+      const item = findItem(id);
+      if (item) {
+        focusLocation(item);
+        enableMarkerDrag(item);
+      }
+    }
+
+    function closeEditor() {
+      setEditorOpen(false);
+    }
+
+    function updatePickModeUi() {
+      const button = document.getElementById("pickPointButton");
+      const status = document.getElementById("pickModeStatus");
+      button.classList.toggle("active", state.pickMode);
+      button.textContent = state.pickMode
+        ? "◎ เลือกพิกัดจากแผนที่: เปิด"
+        : "◎ เลือกพิกัดจากแผนที่: ปิด";
+      status.textContent = state.pickMode ? "กำลังเลือกพิกัด" : "โหมดดูแผนที่";
+    }
+
+    function togglePickMode() {
+      state.pickMode = !state.pickMode;
+      updatePickModeUi();
+      showToast(state.pickMode ? "คลิกบนแผนที่เพื่อเลือกพิกัด" : "ปิดโหมดเลือกพิกัดแล้ว");
+    }
+
+    function updateIconPreview() {
+      const icon = document.getElementById("pointIcon").value.trim();
+      const image = document.getElementById("iconPreviewImage");
+      const categoryPreview = document.getElementById("categoryPreview");
+
+      if (!icon) {
+        image.removeAttribute("src");
+        image.style.display = "none";
+        categoryPreview.textContent = "กรอกหมายเลขไอคอนเพื่อดูหมวดหมู่";
+        return;
+      }
+
+      image.style.display = "block";
+      image.src = `${CONFIG.assetBaseUrl}${encodeURIComponent(icon)}.png`;
+      image.onerror = () => { image.style.display = "none"; };
+
+      const category = classifyIcon(icon);
+      const def = CATEGORY_DEFS[category];
+      categoryPreview.innerHTML = `<span class="category-dot" style="--cat-color:${def.color}"></span><span>${escapeHtml(def.label)}</span>`;
+    }
+
+    function enableMarkerDrag(item) {
+      disableDraggedMarker();
+      state.draggedMarker = item.marker;
+      if (!item.marker.dragging) return;
+
+      item.marker.dragging.enable();
+      item.marker.on("drag", onMarkerDrag);
+      item.marker.on("dragend", onMarkerDragEnd);
+    }
+
+    function disableDraggedMarker() {
+      if (!state.draggedMarker) return;
+      if (state.draggedMarker.dragging) state.draggedMarker.dragging.disable();
+      state.draggedMarker.off("drag", onMarkerDrag);
+      state.draggedMarker.off("dragend", onMarkerDragEnd);
+      state.draggedMarker = null;
+    }
+
+    function markerLatLngToForm(latlng) {
+      const [x, y] = leafletToGTA(latlng.lng, latlng.lat);
+      document.getElementById("pointX").value = Math.round(x);
+      document.getElementById("pointY").value = Math.round(y);
+    }
+
+    function onMarkerDrag(event) {
+      markerLatLngToForm(event.target.getLatLng());
+    }
+
+    function onMarkerDragEnd(event) {
+      markerLatLngToForm(event.target.getLatLng());
+      showToast("อัปเดตพิกัดจากตำแหน่งหมุดแล้ว กดบันทึกเพื่อยืนยัน");
+    }
+
+    function savePoint(event) {
+      event.preventDefault();
+
+      const name = document.getElementById("pointName").value.trim();
+      const x = Number(document.getElementById("pointX").value);
+      const y = Number(document.getElementById("pointY").value);
+      const icon = document.getElementById("pointIcon").value.trim();
+
+      if (!name) return showToast("กรุณากรอกชื่อจุด");
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return showToast("กรุณากรอกพิกัด X และ Y ให้ถูกต้อง");
+      if (!icon) return showToast("กรุณากรอกหมายเลขไอคอน");
+
+      let savedId;
+
+      if (state.editorMode === "edit" && state.editingId) {
+        const index = state.locations.findIndex(item => item.id === state.editingId);
+        if (index < 0) return showToast("ไม่พบจุดที่ต้องการแก้ไข");
+        savedId = state.editingId;
+        state.locations[index] = { id: savedId, name, x, y, icon };
+        showToast("บันทึกการแก้ไขแล้ว");
+      } else {
+        savedId = createId();
+        state.locations.push({ id: savedId, name, x, y, icon });
+        showToast("เพิ่มจุดใหม่แล้ว");
+      }
+
+      persistLocations();
+      closeEditor();
+      rebuildAll(savedId);
+    }
+
+    function deletePoint(id = state.editingId) {
+      const location = findLocation(id);
+      if (!location) return showToast("ไม่พบจุดที่ต้องการลบ");
+
+      const accepted = window.confirm(`ต้องการลบจุด “${location.name}” ใช่หรือไม่?`);
+      if (!accepted) return;
+
+      state.locations = state.locations.filter(item => item.id !== id);
+      persistLocations();
+      map.closePopup();
+      if (state.editingId === id) closeEditor();
+      rebuildAll();
+      showToast("ลบจุดแล้ว");
+    }
+
+    function exportData() {
+      const payload = state.locations.map(({ id, name, x, y, icon }) => ({ id, name, x, y, icon }));
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "data.json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showToast("ดาวน์โหลด data.json แล้ว");
+    }
+
+    async function importData(file) {
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const json = JSON.parse(text);
+        const imported = normalizeLocations(Array.isArray(json) ? json : json.locations);
+        if (!imported.length) throw new Error("ไม่พบข้อมูลจุดที่ถูกต้อง");
+
+        const accepted = window.confirm(`นำเข้า ${imported.length} จุด และแทนที่ข้อมูลปัจจุบันใช่หรือไม่?`);
+        if (!accepted) return;
+
+        state.locations = imported.map((item, index) => ({
+          ...item,
+          id: item.id || deterministicId(item, index)
+        }));
+        persistLocations();
+        closeEditor();
+        rebuildAll();
+        showToast(`นำเข้า ${imported.length} จุดแล้ว`);
+      } catch (error) {
+        console.error(error);
+        showToast("นำเข้าไม่สำเร็จ กรุณาตรวจสอบไฟล์ JSON");
+      } finally {
+        document.getElementById("importFile").value = "";
+      }
+    }
+
+    function resetData() {
+      const accepted = window.confirm("คืนค่าจุดทั้งหมดเป็นข้อมูลเริ่มต้น และลบการแก้ไขในเบราว์เซอร์ใช่หรือไม่?");
+      if (!accepted) return;
+
+      localStorage.removeItem(CONFIG.storageKey);
+      state.locations = cloneLocations(state.sourceLocations);
+      state.dataSource = state.baseDataSource;
+      closeEditor();
+      rebuildAll();
+      showToast("คืนค่าข้อมูลเริ่มต้นแล้ว");
+    }
+
+    function bindEvents() {
+      document.querySelectorAll(".map-style").forEach(button => {
+        button.addEventListener("click", () => switchBaseMap(button.dataset.map));
+      });
+
+      document.getElementById("resetView").addEventListener("click", () => {
+        map.closePopup();
+        map.fitBounds(imageBounds, { animate: true, duration: .5 });
+      });
+
+      document.getElementById("searchInput").addEventListener("input", event => {
+        renderResults(event.target.value);
+      });
+
+      document.getElementById("clearSearch").addEventListener("click", () => {
+        const input = document.getElementById("searchInput");
+        input.value = "";
+        input.focus();
+        renderResults("");
+      });
+
+      document.getElementById("gotoForm").addEventListener("submit", event => {
+        event.preventDefault();
+        goToCoordinates(Number(document.getElementById("gotoX").value), Number(document.getElementById("gotoY").value));
+      });
+
+      document.getElementById("toggleSidebar").addEventListener("click", () => {
+        state.sidebarCollapsed = !state.sidebarCollapsed;
+        document.getElementById("workspace").classList.toggle("sidebar-hidden", state.sidebarCollapsed);
+        setTimeout(() => map.invalidateSize(), 210);
+      });
+
+      document.getElementById("toggleEditor").addEventListener("click", () => {
+        if (state.editorOpen) closeEditor();
+        else openAddPoint();
+      });
+
+      document.getElementById("addPointTop").addEventListener("click", () => openAddPoint());
+      document.getElementById("addPointBottom").addEventListener("click", () => openAddPoint());
+      document.getElementById("closeEditor").addEventListener("click", closeEditor);
+      document.getElementById("cancelEditButton").addEventListener("click", closeEditor);
+      document.getElementById("pickPointButton").addEventListener("click", togglePickMode);
+      document.getElementById("pointIcon").addEventListener("input", updateIconPreview);
+      document.getElementById("pointForm").addEventListener("submit", savePoint);
+      document.getElementById("deletePointButton").addEventListener("click", () => deletePoint());
+
+      document.getElementById("exportData").addEventListener("click", exportData);
+      document.getElementById("exportDataBottom").addEventListener("click", exportData);
+      document.getElementById("importData").addEventListener("click", () => document.getElementById("importFile").click());
+      document.getElementById("importFile").addEventListener("change", event => importData(event.target.files?.[0]));
+      document.getElementById("resetData").addEventListener("click", resetData);
+
+      document.getElementById("copyCursor").addEventListener("click", () => {
+        if (!state.cursorCoords) return showToast("เลื่อนเมาส์บนแผนที่ก่อน");
+        copyText(`${state.cursorCoords.x}, ${state.cursorCoords.y}`);
+      });
+
+      map.on("mousemove", event => {
+        const [x, y] = leafletToGTA(event.latlng.lng, event.latlng.lat);
+        state.cursorCoords = { x: Math.round(x), y: Math.round(y) };
+        document.getElementById("cursorCoords").textContent = `X ${state.cursorCoords.x} · Y ${state.cursorCoords.y}`;
+      });
+
+      map.on("click", event => {
+        const [x, y] = leafletToGTA(event.latlng.lng, event.latlng.lat);
+        const roundedX = Math.round(x);
+        const roundedY = Math.round(y);
+        state.cursorCoords = { x: roundedX, y: roundedY };
+        document.getElementById("cursorCoords").textContent = `X ${roundedX} · Y ${roundedY}`;
+
+        if (state.editorOpen && state.pickMode) {
+          document.getElementById("pointX").value = roundedX;
+          document.getElementById("pointY").value = roundedY;
+          showToast("เลือกพิกัดแล้ว กรอกข้อมูลและกดบันทึก");
+          return;
+        }
+
+        L.popup()
+          .setLatLng(event.latlng)
+          .setContent(`
+            <div class="popup-title">พิกัดบนแผนที่</div>
+            <div class="popup-coords">X ${roundedX} &nbsp;·&nbsp; Y ${roundedY}</div>
+            <div class="popup-actions">
+              <button class="popup-button primary" onclick="window.copyGtaCoords(${roundedX}, ${roundedY})">คัดลอก</button>
+              <button class="popup-button" onclick="window.addPointAt(${roundedX}, ${roundedY})">เพิ่มจุดตรงนี้</button>
+            </div>
+          `)
+          .openOn(map);
+      });
+
+      window.addEventListener("keydown", event => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+          event.preventDefault();
+          document.getElementById("searchInput").focus();
+        }
+
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s" && state.editorOpen) {
+          event.preventDefault();
+          document.getElementById("pointForm").requestSubmit();
+        }
+
+        if (event.key === "Escape") {
+          map.closePopup();
+          if (state.editorOpen) closeEditor();
+        }
+      });
+    }
+
+    async function init() {
+      bindEvents();
+      document.getElementById("map").style.backgroundColor = baseLayers.atlas.background;
+
+      state.locations = await loadLocations();
+      buildMarkers(state.locations);
+      renderCategories();
+      renderResults();
+      updateDataStatus();
+      updateIconPreview();
+      updatePickModeUi();
+
+      if (state.dataSource === "fallback") {
+        showToast("โหลดข้อมูลหลักไม่สำเร็จ จึงแสดงข้อมูลสำรอง");
+      }
+
+      requestAnimationFrame(() => {
+        map.invalidateSize();
+        currentBaseLayer.bringToBack();
+        document.getElementById("loadingCover").classList.add("hidden");
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
