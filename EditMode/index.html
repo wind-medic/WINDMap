@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#081225" />
   <meta name="description" content="แผนที่ GTA/FiveM ธีมทางการ พร้อมระบบค้นหา เพิ่ม แก้ไข และลบจุด" />
   <title>Wind Tactical Map — Point Manager</title>
-
+  <link rel="icon" type="image/png" href="../windcity.png" />
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -101,6 +101,18 @@
       box-shadow: 0 8px 22px rgba(79, 140, 255, 0.28);
     }
 
+
+    /* สไตล์สำหรับโลโก้ใน Topbar */
+    .brand-logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 11px;
+      object-fit: contain;
+      box-shadow: 0 8px 22px rgba(79, 140, 255, 0.28);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    
     .brand-copy { min-width: 0; }
     .brand-copy h1 {
       margin: 0;
@@ -1019,7 +1031,7 @@
   <div class="app-shell">
     <header class="topbar panel">
       <div class="brand">
-        <div class="brand-mark">W</div>
+        <img class="brand-logo" src="../windcity.png" alt="Wind City" />
         <div class="brand-copy">
           <h1>Wind Tactical Map</h1>
           <p id="brandSubtitle">Interactive GTA coordinate map</p>
