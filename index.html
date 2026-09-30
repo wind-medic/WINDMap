@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#081225" />
   <meta name="description" content="แผนที่ GTA/FiveM ธีมทางการ" />
-  <title>UMD Tactical Map — Viewer & Game</title>
-
+  <title>Wind Tactical Map</title>
+  <link rel="icon" type="image/png" href="windcity.png" />
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -93,6 +93,16 @@
       font-size: 19px;
       font-weight: 900;
       box-shadow: 0 8px 22px rgba(79, 140, 255, 0.28);
+    }
+
+    /* สไตล์สำหรับโลโก้ใน Topbar */
+    .brand-logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 11px;
+      object-fit: contain;
+      box-shadow: 0 8px 22px rgba(79, 140, 255, 0.28);
+      background: rgba(0, 0, 0, 0.2);
     }
 
     .brand-copy h1 {
@@ -260,6 +270,33 @@
     }
     .tool-button:hover { background: var(--panel-hover); color: var(--text); }
 
+
+
+
+    /* สไตล์สำหรับส่วนเครดิต */
+    .credits-section {
+      padding: 15px;
+      margin-top: auto; /* ดันไปอยู่ด้านล่างสุดของ Sidebar */
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    
+    .credits-section a {
+      color: var(--accent);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    
+    .credits-section a:hover {
+      color: var(--accent-hover);
+      text-decoration: underline;
+    }
+
+
+
     .map-panel { min-width: 0; min-height: 0; overflow: hidden; background: #102b53; position: relative; }
     #map { width: 100%; height: 100%; background: #102b53; }
     
@@ -380,9 +417,9 @@
   <div class="app-shell">
     <header class="topbar panel">
       <div class="brand">
-        <div class="brand-mark">M</div>
+        <img class="brand-logo" src="windcity.png" alt="Wind City" />
         <div class="brand-copy">
-          <h1>UMD TACTICAL MAP</h1>
+          <h1>Wind Tactical Map</h1>
           <p id="brandSubtitle">Interactive GTA coordinate map</p>
         </div>
       </div>
@@ -418,6 +455,11 @@
             <button id="resetData" class="tool-button" type="button">ล้างข้อมูล</button>
           </div>
           <input id="importFile" type="file" accept="application/json,.json" hidden />
+        </section>
+
+        <section class="credits-section">
+          <p>Made with ❤️ by <a href="https://www.facebook.com/ChuckyRatchada" target="_blank">XenBOT 🤖</a><br>
+          Wind Tactical Map © 2026</p>
         </section>
       </aside>
 
@@ -507,7 +549,7 @@
     "use strict";
 
     const CONFIG = {
-      appName: "UMD Tactical Map",
+      appName: "Wind Tactical Map",
       assetBaseUrl: "https://raw.githubusercontent.com/godofbom/MapRepport/main/",
       storageKey: "umd-tactical-map-locations-v4",
       imageWidth: 8192,
@@ -526,7 +568,7 @@
       service:     { label: "บริการ", color: "#76b1ff" },
       medical:     { label: "โรงพยาบาล", color: "#ef7474" },
       police:      { label: "สถานีตำรวจ", color: "#7898ff" },
-      agency:      { label: "หน่วยงาน", color: "#b495f4" },
+      agency:      { label: "พาวน์หน่วยงาน", color: "#b495f4" },
       route:       { label: "เส้นทาง / เหิน", color: "#eea860" },
       underground: { label: "ใต้พิภพ", color: "#b985ed" },
       gas:         { label: "ปั๊มน้ำมัน", color: "#78cc77" },
